@@ -99,3 +99,54 @@ def generate_route(request: RouteRequest):
     }
 
     return routes.get(request.priority, routes["Balanced"])
+# =========================
+# MODEL 2 — ICEBERG PREDICTION
+# =========================
+
+import os
+import joblib
+import numpy as np
+from pydantic import BaseModel
+
+MODEL_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "models",
+    "iceberg_trajectory_rf.joblib"
+)
+
+iceberg_model_data = joblib.load(MODEL_PATH)
+iceberg_model = iceberg_model_data["model"]
+iceberg_features = iceberg_model_data["features"]
+
+
+class IcebergPredictionRequest(BaseModel):
+    latitude: float
+    longitude: float
+    prev_lat: float
+    prev_lon: float
+    dlat: float
+    dlon: float
+    prev_dlat: float
+    prev_dlon: float
+
+
+@app.post("/api/icebergs/predict")
+def predict_iceberg(request: IcebergPredictionRequest):
+
+    X = np.array([[
+        request.latitude,
+        request.longitude,
+        request.prev_lat,
+        request.prev_lon,
+        request.dlat,
+        request.dlon,
+        request.prev_dlat,
+        request.prev_dlon
+    ]])
+
+    prediction = iceberg_model.predict(X)[0]
+
+    return {
+        "predicted_latitude": float(prediction[0]),
+        "predicted_longitude": float(prediction[1])
+    }
